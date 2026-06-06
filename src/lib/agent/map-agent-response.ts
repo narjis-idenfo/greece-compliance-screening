@@ -96,8 +96,11 @@ export function parseAgentScreeningPayload(
     riskCategory: p.riskCategory,
     confidenceScore: Number(p.confidenceScore) || 0,
     matchType: p.matchType,
+    screenedInput: p.screenedInput as ScreenedInput | undefined,
     pepMatches,
     adverseMediaMatches,
+    rcaAnalysis: p.rcaAnalysis as RCAAnalysis | undefined,
+    complianceAnalystReasoning: p.complianceAnalystReasoning as ComplianceAnalystReasoning | undefined,
     identityAnalysis,
     agentReasoning: p.agentReasoning as AgentReasoning,
   };

@@ -10,7 +10,7 @@ export interface FetchedImageData {
 }
 
 /**
- * Download an image server-side (same path as /api/images/proxy) for OpenAI Vision.
+ * Download an image server-side (same path as /api/images/proxy) for Gemini Vision.
  */
 export async function fetchImageAsDataUrl(imageUrl: string): Promise<FetchedImageData | null> {
   if (!isSafePublicUrl(imageUrl)) return null;

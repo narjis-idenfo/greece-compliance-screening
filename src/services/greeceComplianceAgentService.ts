@@ -1,9 +1,8 @@
 /**
  * Greece Compliance Intelligence Agent Service
  *
- * Connects to your ChatGPT compliance agent via OpenAI:
- * - Assistants API when GREECE_COMPLIANCE_ASSISTANT_ID is set
- * - Chat Completions otherwise (uses prompts/screening-agent-system.md)
+ * Connects to Google Gemini for all compliance screening (name + face/vision).
+ * Uses prompts/screening-agent-system.md as the system instruction.
  *
  * Screenings are persisted to .data/screenings/ so GET works across server instances.
  */

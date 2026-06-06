@@ -6,7 +6,7 @@ function mergeScreeningResults(
   nameResult: ScreeningResult,
   faceResult: ScreeningResult
 ): ScreeningResult {
-  // Combine results: name screening from Gemini + face screening from OpenAI
+  // Combine results: name screening + face/vision screening (both Gemini)
   return {
     ...nameResult,
     visionIdentification: faceResult.visionIdentification,
@@ -28,13 +28,10 @@ function mergeScreeningResults(
       nameResult.adverseMediaMatchCount + faceResult.adverseMediaMatchCount,
     // Update reasoning to reflect both screenings
     agentReasoning: {
-      summary: `[Gemini Name Screening + OpenAI Face Screening] ${nameResult.agentReasoning.summary}`,
+      summary: `[Gemini Name Screening + Gemini Face Screening] ${nameResult.agentReasoning.summary}`,
       steps: [
         { title: "Name Screening (Gemini)", detail: nameResult.agentReasoning.summary },
-        {
-          title: "Face Screening (OpenAI)",
-          detail: faceResult.agentReasoning.summary,
-        },
+        { title: "Face/Vision Screening (Gemini)", detail: faceResult.agentReasoning.summary },
       ],
       dataPointsUsed: [
         ...nameResult.agentReasoning.dataPointsUsed,
@@ -68,13 +65,13 @@ export async function runLiveScreening(
 
   // Both name and face - run in parallel
   if (hasName && hasFace) {
-    console.log("[Screening] Running parallel: Gemini name screening + OpenAI face screening");
+    console.log("[Screening] Running parallel: Gemini name screening + Gemini face/vision screening");
     const [nameResult, faceResult] = await Promise.all([
       runGoogleChatScreening(id, input, profileCompleteness),
       runImageOnlyScreening(id, input, profileCompleteness),
     ]);
 
-    console.log("[Screening] Combining results from Gemini (name) and OpenAI (face)");
+    console.log("[Screening] Combining results from Gemini name + face screenings");
     return mergeScreeningResults(nameResult, faceResult);
   }
 

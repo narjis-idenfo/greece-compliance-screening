@@ -1,29 +1,23 @@
 import type { ScreeningInput } from "@/types/screening";
-import type { ResponseInput } from "openai/resources/responses/responses";
+import type { Part } from "@google/generative-ai";
 
 export function buildResponsesInput(
   userMessage: string,
   input: ScreeningInput
-): string | ResponseInput {
-  if (!input.faceImageBase64) {
-    return userMessage;
+): Part[] {
+  const parts: Part[] = [{ text: userMessage }];
+
+  if (input.faceImageBase64) {
+    parts.push({
+      text: "The image below is the subject's uploaded facial reference. Use it when comparing against PEP/adverse media photos found via web search.",
+    } as Part);
+    parts.push({
+      inlineData: {
+        mimeType: "image/jpeg",
+        data: input.faceImageBase64,
+      },
+    } as Part);
   }
 
-  return [
-    {
-      role: "user",
-      content: [
-        { type: "input_text", text: userMessage },
-        {
-          type: "input_image",
-          detail: "auto",
-          image_url: `data:image/jpeg;base64,${input.faceImageBase64}`,
-        },
-        {
-          type: "input_text",
-          text: "The image above is the subject's uploaded facial reference. Use it when comparing against PEP/adverse media photos found via web search.",
-        },
-      ],
-    },
-  ];
+  return parts;
 }

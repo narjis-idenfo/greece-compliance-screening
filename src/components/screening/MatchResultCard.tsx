@@ -54,19 +54,43 @@ export function MatchResultCard({ match, children }: MatchResultCardProps) {
         </div>
         <MatchSearchImages imageUrl={match.imageUrl} searchImages={match.searchImages} />
         <p className="text-sm leading-relaxed text-muted-foreground">{match.explanation}</p>
+        {match.complianceAnalystReasoning && (
+          <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3">
+            <p className="text-xs font-medium text-blue-400">Compliance Analyst Reasoning</p>
+            <p className="mt-1 text-sm leading-relaxed">{match.complianceAnalystReasoning}</p>
+          </div>
+        )}
         <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
           <p className="text-xs font-medium text-amber-500">Recommended action</p>
           <p className="mt-1 text-sm">{match.recommendedAction}</p>
         </div>
-        {match.sourceUrl && (
-          <a
-            href={match.sourceUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs text-cyan-500 hover:underline"
-          >
-            View source <ExternalLink className="h-3 w-3" />
-          </a>
+        {(match.sourceUrl || (match.references && match.references.length > 0)) && (
+          <div className="space-y-1">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">References</p>
+            {match.sourceUrl && (
+              <a
+                href={match.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-xs text-cyan-500 hover:underline truncate"
+              >
+                <ExternalLink className="h-3 w-3 shrink-0" />
+                {match.sourceUrl}
+              </a>
+            )}
+            {match.references?.map((ref, i) => (
+              <a
+                key={i}
+                href={ref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-xs text-cyan-500 hover:underline truncate"
+              >
+                <ExternalLink className="h-3 w-3 shrink-0" />
+                {ref}
+              </a>
+            ))}
+          </div>
         )}
         {children}
       </CardContent>

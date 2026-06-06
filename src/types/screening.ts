@@ -52,8 +52,10 @@ export interface MatchResult {
   confidenceScore: number;
   matchType: MatchType;
   explanation: string;
+  complianceAnalystReasoning?: string;
   recommendedAction: string;
   sourceUrl?: string;
+  references?: string[];
   publishedDate?: string;
   /** Primary subject or article thumbnail (direct https URL) */
   imageUrl?: string;
