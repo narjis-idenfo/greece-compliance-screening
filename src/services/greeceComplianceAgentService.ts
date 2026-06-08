@@ -82,16 +82,25 @@ export const greeceComplianceAgentService = {
     };
 
     const profileCompleteness = calculateProfileCompleteness(screeningInput);
+
+    console.log(`[submitScreening] START name="${screeningInput.fullName}" mode=${mode} hasFace=${Boolean(screeningInput.faceImageBase64)}`);
+    const t0 = Date.now();
+
     let result = await callGreeceComplianceAgent(screeningInput, profileCompleteness);
+    console.log(`[submitScreening] Gemini screening done in ${Date.now() - t0}ms — pepMatches=${result.pepMatches.length} adverseMedia=${result.adverseMediaMatches.length}`);
 
     if (getAgentConfig().useLiveAgent) {
+      const t1 = Date.now();
+      console.log(`[submitScreening] Starting image enrichment for ${result.pepMatches.length + result.adverseMediaMatches.length} matches`);
       try {
         result = await enrichScreeningWithImagesAndFaces(result);
+        console.log(`[submitScreening] Image enrichment done in ${Date.now() - t1}ms`);
       } catch (err) {
-        console.warn("[submitScreening] image enrichment failed:", err);
+        console.warn(`[submitScreening] Image enrichment failed after ${Date.now() - t1}ms:`, err);
       }
     }
 
+    console.log(`[submitScreening] Saving result, total elapsed ${Date.now() - t0}ms`);
     await saveScreeningResult(result);
 
     return { screeningId: result.id, result };

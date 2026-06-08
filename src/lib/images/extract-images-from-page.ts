@@ -68,6 +68,8 @@ export async function extractImagesFromPage(pageUrl: string): Promise<ExtractedP
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  console.log(`[extractImagesFromPage] Fetching page: ${pageUrl.slice(0, 100)}`);
+  const tFetch = Date.now();
 
   try {
     const res = await fetch(pageUrl, {
@@ -109,11 +111,13 @@ export async function extractImagesFromPage(pageUrl: string): Promise<ExtractedP
       add(img, "img");
     }
 
-    return found
+    const result = found
       .sort((a, b) => scoreImageCandidate(b.url) - scoreImageCandidate(a.url))
       .slice(0, 5);
+    console.log(`[extractImagesFromPage] Done in ${Date.now() - tFetch}ms — found ${result.length} images from ${pageUrl.slice(0, 80)}`);
+    return result;
   } catch (err) {
-    console.warn("[extractImagesFromPage] failed:", pageUrl, err);
+    console.warn(`[extractImagesFromPage] Failed after ${Date.now() - tFetch}ms:`, pageUrl, err);
     return [];
   } finally {
     clearTimeout(timeout);

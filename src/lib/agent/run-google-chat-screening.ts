@@ -40,7 +40,10 @@ export async function runGoogleChatScreening(
     } as Part);
   }
 
+  console.log(`[Gemini] Sending request — model=${model} screeningId=${id}`);
+  const tGemini = Date.now();
   const response = await genModel.generateContent(messageParts);
+  console.log(`[Gemini] Response received in ${Date.now() - tGemini}ms`);
 
   const content = response.response.text();
 
@@ -48,9 +51,8 @@ export async function runGoogleChatScreening(
     throw new Error("Google Gemini returned an empty response");
   }
 
-  console.log("[Google Gemini Chat] screeningId:", id);
-  console.log("[Google Gemini Chat] model:", model);
-  console.log("[Google Gemini Chat] raw response:\n", content);
+  console.log("[Gemini] raw response length:", content.length, "chars");
+  console.log("[Gemini] raw response:\n", content);
 
   const payload = parseAgentScreeningPayload(content, input);
   console.log("[Google Gemini Chat] parsed payload:", JSON.stringify(payload, null, 2));

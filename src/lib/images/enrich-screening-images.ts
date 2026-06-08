@@ -43,11 +43,16 @@ async function enrichMatch(
   input: ScreeningInput,
   hasSubjectPhoto: boolean
 ): Promise<MatchResult> {
+  const tMatch = Date.now();
+  console.log(`[enrichMatch] START "${match.name}" sourceUrl=${match.sourceUrl ?? "none"}`);
+
   let candidates = match.searchImages ?? [];
   let imageUrl = match.imageUrl;
 
   if (match.sourceUrl) {
+    const tPage = Date.now();
     const fromPage = await pickValidImages(match.sourceUrl, candidates);
+    console.log(`[enrichMatch] Page scrape for "${match.name}" → ${fromPage.length} images in ${Date.now() - tPage}ms`);
     if (fromPage.length > 0) candidates = fromPage;
   } else if (imageUrl) {
     const ok = await verifyImageUrl(imageUrl);
@@ -91,6 +96,8 @@ async function enrichMatch(
 
   imageUrl = kept[0]?.url;
   const searchImages = kept.length > 0 ? kept : undefined;
+
+  console.log(`[enrichMatch] DONE "${match.name}" — kept=${kept.length} images, facialScore=${facialMatchScore ?? "n/a"}, elapsed=${Date.now() - tMatch}ms`);
 
   return normalizeMatchImages({
     ...match,

@@ -144,8 +144,11 @@ Return JSON only:
   });
 
   try {
+    console.log(`[analyzeSourceImage] Calling Gemini Vision for "${matchName}" — url=${candidateImageUrl.slice(0, 80)}`);
+    const tVision = Date.now();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const response = await genModel.generateContent(messageParts as any);
+    console.log(`[analyzeSourceImage] Gemini Vision replied in ${Date.now() - tVision}ms`);
 
     const rawText = response.response.text();
     if (!rawText) return null;
