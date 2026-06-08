@@ -35,12 +35,27 @@ export interface AgentScreeningPayload {
 const RISK_CATEGORIES: RiskCategory[] = ["Low", "Medium", "High", "Critical"];
 const MATCH_TYPES: MatchType[] = ["exact", "possible", "false_positive_likely"];
 
-function isRiskCategory(v: unknown): v is RiskCategory {
-  return typeof v === "string" && RISK_CATEGORIES.includes(v as RiskCategory);
+function normalizeRiskCategory(v: unknown): RiskCategory {
+  if (typeof v === "string" && RISK_CATEGORIES.includes(v as RiskCategory)) {
+    return v as RiskCategory;
+  }
+  // Map common Gemini variants
+  const s = String(v).toLowerCase();
+  if (s.includes("critical")) return "Critical";
+  if (s.includes("high")) return "High";
+  if (s.includes("medium") || s.includes("moderate")) return "Medium";
+  return "Low";
 }
 
-function isMatchType(v: unknown): v is MatchType {
-  return typeof v === "string" && MATCH_TYPES.includes(v as MatchType);
+function normalizeMatchType(v: unknown): MatchType {
+  if (typeof v === "string" && MATCH_TYPES.includes(v as MatchType)) {
+    return v as MatchType;
+  }
+  // Map common Gemini variants like "fuzzy", "partial", "phonetic", "approximate"
+  const s = String(v).toLowerCase();
+  if (s.includes("exact") || s.includes("confirmed")) return "exact";
+  if (s.includes("false") || s.includes("unlikely") || s.includes("no_match")) return "false_positive_likely";
+  return "possible";
 }
 
 export function parseAgentScreeningPayload(
@@ -62,12 +77,8 @@ export function parseAgentScreeningPayload(
 
   const p = parsed as Record<string, unknown>;
 
-  if (!isRiskCategory(p.riskCategory)) {
-    throw new Error(`Invalid riskCategory: ${String(p.riskCategory)}`);
-  }
-  if (!isMatchType(p.matchType)) {
-    throw new Error(`Invalid matchType: ${String(p.matchType)}`);
-  }
+  const riskCategory = normalizeRiskCategory(p.riskCategory);
+  const matchType = normalizeMatchType(p.matchType);
 
   let pepMatches = normalizeAllMatchImages(
     Array.isArray(p.pepMatches) ? (p.pepMatches as MatchResult[]) : []
@@ -93,9 +104,9 @@ export function parseAgentScreeningPayload(
 
   return {
     overallRiskScore: Number(p.overallRiskScore) || 0,
-    riskCategory: p.riskCategory,
+    riskCategory,
     confidenceScore: Number(p.confidenceScore) || 0,
-    matchType: p.matchType,
+    matchType,
     screenedInput: p.screenedInput as ScreenedInput | undefined,
     pepMatches,
     adverseMediaMatches,
