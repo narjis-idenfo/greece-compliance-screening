@@ -28,8 +28,18 @@ export default function NewScreeningPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Screening failed");
+      const text = await res.text();
+      let data: Record<string, unknown>;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error(
+          res.status === 504 || res.status === 502
+            ? "Screening timed out — please try again."
+            : `Server error (${res.status}): ${text.slice(0, 120)}`
+        );
+      }
+      if (!res.ok) throw new Error((data.error as string) ?? "Screening failed");
 
       const screeningId = data.screeningId as string;
       const result = data.result as ScreeningResult | undefined;

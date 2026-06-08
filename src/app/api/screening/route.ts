@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { greeceComplianceAgentService } from "@/services/greeceComplianceAgentService";
 import type { ScreeningInput } from "@/types/screening";
 
+export const maxDuration = 300;
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as ScreeningInput;
