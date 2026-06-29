@@ -8,26 +8,47 @@ const TEXT_DARK = [30, 30, 30] as const;
 const TEXT_MID = [80, 80, 90] as const;
 const WHITE = [255, 255, 255] as const;
 
+// Greek → Latin transliteration so Greek-script names survive in the PDF
+// (jsPDF built-in fonts only render Latin-1). Order matters for digraphs.
+const GREEK_MAP: Record<string, string> = {
+  "Α": "A", "Β": "V", "Γ": "G", "Δ": "D", "Ε": "E", "Ζ": "Z", "Η": "I",
+  "Θ": "Th", "Ι": "I", "Κ": "K", "Λ": "L", "Μ": "M", "Ν": "N", "Ξ": "X",
+  "Ο": "O", "Π": "P", "Ρ": "R", "Σ": "S", "Τ": "T", "Υ": "Y", "Φ": "F",
+  "Χ": "Ch", "Ψ": "Ps", "Ω": "O",
+  "Ά": "A", "Έ": "E", "Ή": "I", "Ί": "I", "Ό": "O", "Ύ": "Y", "Ώ": "O", "Ϊ": "I", "Ϋ": "Y",
+  "α": "a", "β": "v", "γ": "g", "δ": "d", "ε": "e", "ζ": "z", "η": "i",
+  "θ": "th", "ι": "i", "κ": "k", "λ": "l", "μ": "m", "ν": "n", "ξ": "x",
+  "ο": "o", "π": "p", "ρ": "r", "σ": "s", "ς": "s", "τ": "t", "υ": "y",
+  "φ": "f", "χ": "ch", "ψ": "ps", "ω": "o",
+  "ά": "a", "έ": "e", "ή": "i", "ί": "i", "ό": "o", "ύ": "y", "ώ": "o",
+  "ϊ": "i", "ϋ": "y", "ΐ": "i", "ΰ": "y",
+};
+
+function transliterateGreek(value: string): string {
+  return value.replace(/[Ͱ-Ͽἀ-῿]/g, (ch) => GREEK_MAP[ch] ?? "");
+}
+
 // jsPDF built-in fonts only support Latin-1 (code points 0–255).
-// Map common Unicode punctuation to ASCII equivalents first, then strip anything else.
+// Normalize punctuation, transliterate Greek, then strip any remaining non-Latin-1.
 function sanitizePdfText(value: string): string {
-  return value
+  return transliterateGreek(value)
     .replace(/[–—]/g, "-")   // en-dash / em-dash -> hyphen
     .replace(/[‘’]/g, "'")   // curly apostrophes
     .replace(/[“”]/g, '"')   // curly double quotes
     .replace(/…/g, "...")          // ellipsis
-    .replace(/[^\x00-\xFF]/g, "");     // strip remaining non-Latin-1 (Greek, Arabic, etc.)
+    .replace(/[^\x00-\xFF]/g, "")  // strip remaining non-Latin-1 (Arabic, CJK, etc.)
+    .replace(/\s{2,}/g, " ")       // collapse whitespace left by stripped chars
+    .trim();
 }
 
-// For the Known Aliases cell: filter out comma-separated entries that are non-Latin,
-// and append a count note so the analyst knows they were present.
+// For the Known Aliases cell: transliterate each entry; drop any that are still
+// empty/non-Latin after transliteration and note the count.
 function sanitizeAliases(value: string): string {
   const parts = value.split(/,\s*/);
-  const latinParts = parts.filter((p) => !/[^\x00-\xFF]/.test(p));
-  if (latinParts.length === parts.length) return sanitizePdfText(value);
-  const dropped = parts.length - latinParts.length;
-  const suffix = ` (+${dropped} non-Latin alias${dropped > 1 ? "es" : ""} omitted)`;
-  return sanitizePdfText(latinParts.join(", ")) + suffix;
+  const cleaned = parts.map((p) => sanitizePdfText(p)).filter((p) => p.length > 0);
+  const dropped = parts.length - cleaned.length;
+  const suffix = dropped > 0 ? ` (+${dropped} non-Latin alias${dropped > 1 ? "es" : ""} omitted)` : "";
+  return (cleaned.join(", ") || "Not Available") + suffix;
 }
 
 export async function exportCaseReportPdf(result: ScreeningResult): Promise<void> {
@@ -182,19 +203,18 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
   // ── PEP MATCHES ──────────────────────────────────────────────────────────
   if (result.pepMatches.length > 0) {
     for (const match of result.pepMatches) {
-      checkPage(36);
-      const blockStartY = y;
-
-      // Red left border accent
-      setColor(RED_ACCENT);
-      doc.rect(MARGIN, blockStartY - 1, 3, 0, "F"); // placeholder — drawn after we know height
+      checkPage(40);
+      const boxTop = y;
+      y += 6; // top padding inside box
 
       // Header line
       doc.setFontSize(9.5);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(RED_ACCENT[0], RED_ACCENT[1], RED_ACCENT[2]);
-      const matchHeader = sanitizePdfText(`Risk Match: ${(match as { pepType?: string }).pepType ?? "PEP Match"} — ${match.name}`);
-      const headerLines = doc.splitTextToSize(matchHeader, CONTENT_W - 8);
+      const matchName = sanitizePdfText(match.name);
+      const matchHeader = sanitizePdfText(`Risk Match: ${(match as { pepType?: string }).pepType ?? "PEP Match"}`)
+        + (matchName ? ` - ${matchName}` : "");
+      const headerLines = doc.splitTextToSize(matchHeader, CONTENT_W - 10);
       doc.text(headerLines, MARGIN + 6, y);
       y += headerLines.length * 5 + 2;
 
@@ -203,45 +223,44 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
       doc.setFont("helvetica", "normal");
       doc.setTextColor(TEXT_MID[0], TEXT_MID[1], TEXT_MID[2]);
       const explanationText = sanitizePdfText(match.complianceAnalystReasoning || match.explanation || "");
-      const expLines = doc.splitTextToSize(explanationText, CONTENT_W - 8);
+      const expLines = doc.splitTextToSize(explanationText, CONTENT_W - 10);
       doc.text(expLines, MARGIN + 6, y);
-      y += expLines.length * 4.2 + 2;
+      y += expLines.length * 4.2 + 3;
 
       // Risk level badge
       doc.setFontSize(8);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(RED_ACCENT[0], RED_ACCENT[1], RED_ACCENT[2]);
       doc.text(`Risk Level: ${match.riskLevel}  |  Confidence: ${match.confidenceScore}%  |  Match: ${match.matchType}`, MARGIN + 6, y);
-      y += 3;
 
-      const blockEndY = y;
-      // Draw red left border now that we know full height
+      const boxBottom = y + 5; // bottom padding inside box
+
+      // Red left border accent
       setColor(RED_ACCENT);
-      doc.rect(MARGIN, blockStartY - 1, 3, blockEndY - blockStartY + 2, "F");
+      doc.rect(MARGIN, boxTop, 3, boxBottom - boxTop, "F");
 
       // Light outer border
-      setColor([250, 235, 235], false);
       doc.setDrawColor(230, 210, 210);
       doc.setLineWidth(0.3);
-      doc.roundedRect(MARGIN, blockStartY - 2, CONTENT_W, blockEndY - blockStartY + 4, 2, 2, "S");
+      doc.roundedRect(MARGIN, boxTop, CONTENT_W, boxBottom - boxTop, 2, 2, "S");
 
-      y += 4;
+      y = boxBottom + 5; // gap between boxes
     }
   }
 
   // ── ADVERSE MEDIA MATCHES ─────────────────────────────────────────────────
   if (result.adverseMediaMatches.length > 0) {
     for (const match of result.adverseMediaMatches) {
-      checkPage(36);
-      const blockStartY = y;
-
-      setColor(RED_ACCENT);
+      checkPage(40);
+      const boxTop = y;
+      y += 6; // top padding inside box
 
       doc.setFontSize(9.5);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(RED_ACCENT[0], RED_ACCENT[1], RED_ACCENT[2]);
-      const matchHeader = sanitizePdfText(`Risk Match: Adverse Media — ${match.name}`);
-      const headerLines = doc.splitTextToSize(matchHeader, CONTENT_W - 8);
+      const matchName = sanitizePdfText(match.name);
+      const matchHeader = "Risk Match: Adverse Media" + (matchName ? ` - ${matchName}` : "");
+      const headerLines = doc.splitTextToSize(matchHeader, CONTENT_W - 10);
       doc.text(headerLines, MARGIN + 6, y);
       y += headerLines.length * 5 + 2;
 
@@ -249,15 +268,15 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
       doc.setFont("helvetica", "normal");
       doc.setTextColor(TEXT_MID[0], TEXT_MID[1], TEXT_MID[2]);
       const explanationText = sanitizePdfText(match.complianceAnalystReasoning || match.explanation || "");
-      const expLines = doc.splitTextToSize(explanationText, CONTENT_W - 8);
+      const expLines = doc.splitTextToSize(explanationText, CONTENT_W - 10);
       doc.text(expLines, MARGIN + 6, y);
-      y += expLines.length * 4.2 + 2;
+      y += expLines.length * 4.2 + 3;
 
       if (match.sourceType) {
         doc.setFontSize(8);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(RED_ACCENT[0], RED_ACCENT[1], RED_ACCENT[2]);
-        doc.text(`Source: ${match.sourceType}  |  Risk: ${match.riskLevel}  |  Confidence: ${match.confidenceScore}%`, MARGIN + 6, y);
+        doc.text(`Source: ${sanitizePdfText(match.sourceType)}  |  Risk: ${match.riskLevel}  |  Confidence: ${match.confidenceScore}%`, MARGIN + 6, y);
         y += 4;
       }
 
@@ -265,19 +284,19 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
         doc.setFontSize(8);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(TEXT_MID[0], TEXT_MID[1], TEXT_MID[2]);
-        doc.text(`Published: ${match.publishedDate}`, MARGIN + 6, y);
-        y += 3;
+        doc.text(`Published: ${sanitizePdfText(match.publishedDate)}`, MARGIN + 6, y);
+        y += 1;
       }
 
-      const blockEndY = y;
+      const boxBottom = y + 5; // bottom padding inside box
       setColor(RED_ACCENT);
-      doc.rect(MARGIN, blockStartY - 1, 3, blockEndY - blockStartY + 2, "F");
+      doc.rect(MARGIN, boxTop, 3, boxBottom - boxTop, "F");
 
       doc.setDrawColor(230, 210, 210);
       doc.setLineWidth(0.3);
-      doc.roundedRect(MARGIN, blockStartY - 2, CONTENT_W, blockEndY - blockStartY + 4, 2, 2, "S");
+      doc.roundedRect(MARGIN, boxTop, CONTENT_W, boxBottom - boxTop, 2, 2, "S");
 
-      y += 4;
+      y = boxBottom + 5; // gap between boxes
     }
   }
 
