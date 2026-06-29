@@ -8,6 +8,18 @@ const TEXT_DARK = [30, 30, 30] as const;
 const TEXT_MID = [80, 80, 90] as const;
 const WHITE = [255, 255, 255] as const;
 
+// jsPDF built-in fonts only support Latin-1 (code points 0–255).
+// Strip anything outside that range so Greek/Arabic/etc. don't render as mojibake.
+function sanitizePdfText(value: string): string {
+  // Split comma-separated aliases, drop entries that are entirely non-Latin, keep rest.
+  const parts = value.split(/,\s*/);
+  const latin = parts.filter((p) => !/[^\x00-\xFF]/.test(p));
+  if (latin.length === parts.length) return value; // nothing to strip
+  const dropped = parts.length - latin.length;
+  const suffix = dropped > 0 ? ` (+${dropped} non-Latin alias${dropped > 1 ? "es" : ""} omitted)` : "";
+  return (latin.join(", ") || value.replace(/[^\x00-\xFF]/g, "")) + suffix;
+}
+
 export async function exportCaseReportPdf(result: ScreeningResult): Promise<void> {
   const { jsPDF } = await import("jspdf");
   const doc = new jsPDF({ unit: "mm", format: "a4" });
@@ -113,13 +125,13 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
   const inp = result.input;
 
   const rows: [string, string][] = [
-    ["Primary Name", si?.name ?? inp.fullName],
-    ["Known Aliases", si?.aliases?.join(", ") || "Not Available"],
-    ["Father Name", si?.fathersName ?? inp.fathersName ?? "Not Available"],
-    ["Country of Residence / Domicile", si?.countryOfResidence ?? inp.address ?? "Not Available"],
-    ["Nationality", si?.nationality ?? "Not Available"],
-    ["Date of Birth", si?.dateOfBirth ?? inp.dateOfBirth ?? "Not Available"],
-    ["RCA Relationship with PEP", result.rcaAnalysis?.isRCA ? `${result.rcaAnalysis.relationshipType} of ${result.rcaAnalysis.relatedPEPName}` : "Not Available (Primary PEP)"],
+    ["Primary Name", sanitizePdfText(si?.name ?? inp.fullName)],
+    ["Known Aliases", sanitizePdfText(si?.aliases?.join(", ") || "Not Available")],
+    ["Father Name", sanitizePdfText(si?.fathersName ?? inp.fathersName ?? "Not Available")],
+    ["Country of Residence / Domicile", sanitizePdfText(si?.countryOfResidence ?? inp.address ?? "Not Available")],
+    ["Nationality", sanitizePdfText(si?.nationality ?? "Not Available")],
+    ["Date of Birth", sanitizePdfText(si?.dateOfBirth ?? inp.dateOfBirth ?? "Not Available")],
+    ["RCA Relationship with PEP", sanitizePdfText(result.rcaAnalysis?.isRCA ? `${result.rcaAnalysis.relationshipType} of ${result.rcaAnalysis.relatedPEPName}` : "Not Available (Primary PEP)")],
   ];
 
   for (let i = 0; i < rows.length; i++) {
@@ -177,7 +189,7 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
       doc.setFontSize(9.5);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(RED_ACCENT[0], RED_ACCENT[1], RED_ACCENT[2]);
-      const matchHeader = `Risk Match: ${(match as { pepType?: string }).pepType ?? "PEP Match"} — ${match.name}`;
+      const matchHeader = sanitizePdfText(`Risk Match: ${(match as { pepType?: string }).pepType ?? "PEP Match"} — ${match.name}`);
       const headerLines = doc.splitTextToSize(matchHeader, CONTENT_W - 8);
       doc.text(headerLines, MARGIN + 6, y);
       y += headerLines.length * 5 + 2;
@@ -186,7 +198,7 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
       doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(TEXT_MID[0], TEXT_MID[1], TEXT_MID[2]);
-      const explanationText = match.complianceAnalystReasoning || match.explanation || "";
+      const explanationText = sanitizePdfText(match.complianceAnalystReasoning || match.explanation || "");
       const expLines = doc.splitTextToSize(explanationText, CONTENT_W - 8);
       doc.text(expLines, MARGIN + 6, y);
       y += expLines.length * 4.2 + 2;
@@ -224,7 +236,7 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
       doc.setFontSize(9.5);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(RED_ACCENT[0], RED_ACCENT[1], RED_ACCENT[2]);
-      const matchHeader = `Risk Match: Adverse Media — ${match.name}`;
+      const matchHeader = sanitizePdfText(`Risk Match: Adverse Media — ${match.name}`);
       const headerLines = doc.splitTextToSize(matchHeader, CONTENT_W - 8);
       doc.text(headerLines, MARGIN + 6, y);
       y += headerLines.length * 5 + 2;
@@ -232,7 +244,7 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
       doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(TEXT_MID[0], TEXT_MID[1], TEXT_MID[2]);
-      const explanationText = match.complianceAnalystReasoning || match.explanation || "";
+      const explanationText = sanitizePdfText(match.complianceAnalystReasoning || match.explanation || "");
       const expLines = doc.splitTextToSize(explanationText, CONTENT_W - 8);
       doc.text(expLines, MARGIN + 6, y);
       y += expLines.length * 4.2 + 2;
