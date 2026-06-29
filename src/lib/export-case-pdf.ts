@@ -161,7 +161,7 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
   const summaryText = result.complianceAnalystReasoning?.summary || result.agentReasoning?.summary || "No summary available.";
   checkPage(16);
   wrappedText(summaryText, MARGIN, CONTENT_W, { size: 9, color: TEXT_MID, lineHeight: 4.5 });
-  y += 4;
+  y += 5;
 
   // ── PEP MATCHES ──────────────────────────────────────────────────────────
   if (result.pepMatches.length > 0) {
@@ -196,7 +196,7 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
       doc.setFont("helvetica", "bold");
       doc.setTextColor(RED_ACCENT[0], RED_ACCENT[1], RED_ACCENT[2]);
       doc.text(`Risk Level: ${match.riskLevel}  |  Confidence: ${match.confidenceScore}%  |  Match: ${match.matchType}`, MARGIN + 6, y);
-      y += 5;
+      y += 3;
 
       const blockEndY = y;
       // Draw red left border now that we know full height
@@ -209,7 +209,7 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
       doc.setLineWidth(0.3);
       doc.roundedRect(MARGIN, blockStartY - 2, CONTENT_W, blockEndY - blockStartY + 4, 2, 2, "S");
 
-      y += 5;
+      y += 4;
     }
   }
 
@@ -242,7 +242,7 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
         doc.setFont("helvetica", "bold");
         doc.setTextColor(RED_ACCENT[0], RED_ACCENT[1], RED_ACCENT[2]);
         doc.text(`Source: ${match.sourceType}  |  Risk: ${match.riskLevel}  |  Confidence: ${match.confidenceScore}%`, MARGIN + 6, y);
-        y += 5;
+        y += 4;
       }
 
       if (match.publishedDate) {
@@ -250,7 +250,7 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
         doc.setFont("helvetica", "normal");
         doc.setTextColor(TEXT_MID[0], TEXT_MID[1], TEXT_MID[2]);
         doc.text(`Published: ${match.publishedDate}`, MARGIN + 6, y);
-        y += 4;
+        y += 3;
       }
 
       const blockEndY = y;
@@ -261,7 +261,7 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
       doc.setLineWidth(0.3);
       doc.roundedRect(MARGIN, blockStartY - 2, CONTENT_W, blockEndY - blockStartY + 4, 2, 2, "S");
 
-      y += 5;
+      y += 4;
     }
   }
 
