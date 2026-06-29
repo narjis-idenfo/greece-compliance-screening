@@ -9,15 +9,25 @@ const TEXT_MID = [80, 80, 90] as const;
 const WHITE = [255, 255, 255] as const;
 
 // jsPDF built-in fonts only support Latin-1 (code points 0–255).
-// Strip anything outside that range so Greek/Arabic/etc. don't render as mojibake.
+// Map common Unicode punctuation to ASCII equivalents first, then strip anything else.
 function sanitizePdfText(value: string): string {
-  // Split comma-separated aliases, drop entries that are entirely non-Latin, keep rest.
+  return value
+    .replace(/[–—]/g, "-")   // en-dash / em-dash -> hyphen
+    .replace(/[‘’]/g, "'")   // curly apostrophes
+    .replace(/[“”]/g, '"')   // curly double quotes
+    .replace(/…/g, "...")          // ellipsis
+    .replace(/[^\x00-\xFF]/g, "");     // strip remaining non-Latin-1 (Greek, Arabic, etc.)
+}
+
+// For the Known Aliases cell: filter out comma-separated entries that are non-Latin,
+// and append a count note so the analyst knows they were present.
+function sanitizeAliases(value: string): string {
   const parts = value.split(/,\s*/);
-  const latin = parts.filter((p) => !/[^\x00-\xFF]/.test(p));
-  if (latin.length === parts.length) return value; // nothing to strip
-  const dropped = parts.length - latin.length;
-  const suffix = dropped > 0 ? ` (+${dropped} non-Latin alias${dropped > 1 ? "es" : ""} omitted)` : "";
-  return (latin.join(", ") || value.replace(/[^\x00-\xFF]/g, "")) + suffix;
+  const latinParts = parts.filter((p) => !/[^\x00-\xFF]/.test(p));
+  if (latinParts.length === parts.length) return sanitizePdfText(value);
+  const dropped = parts.length - latinParts.length;
+  const suffix = ` (+${dropped} non-Latin alias${dropped > 1 ? "es" : ""} omitted)`;
+  return sanitizePdfText(latinParts.join(", ")) + suffix;
 }
 
 export async function exportCaseReportPdf(result: ScreeningResult): Promise<void> {
@@ -89,12 +99,6 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
   setColor(DARK_NAVY);
   doc.rect(0, 0, PAGE_W, 34, "F");
 
-  text("AML / CFT COMPLIANCE REPORT", PAGE_W / 2, 14, {
-    size: 16,
-    bold: true,
-    color: WHITE,
-  });
-  // centre-align manually
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(255, 255, 255);
@@ -126,7 +130,7 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
 
   const rows: [string, string][] = [
     ["Primary Name", sanitizePdfText(si?.name ?? inp.fullName)],
-    ["Known Aliases", sanitizePdfText(si?.aliases?.join(", ") || "Not Available")],
+    ["Known Aliases", sanitizeAliases(si?.aliases?.join(", ") || "Not Available")],
     ["Father Name", sanitizePdfText(si?.fathersName ?? inp.fathersName ?? "Not Available")],
     ["Country of Residence / Domicile", sanitizePdfText(si?.countryOfResidence ?? inp.address ?? "Not Available")],
     ["Nationality", sanitizePdfText(si?.nationality ?? "Not Available")],
