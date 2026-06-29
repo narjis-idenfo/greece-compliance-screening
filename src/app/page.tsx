@@ -8,7 +8,6 @@ import { RiskDistributionChart } from "@/components/dashboard/RiskDistributionCh
 import { RecentScreenings } from "@/components/dashboard/RecentScreenings";
 import { LoadingOverlay } from "@/components/screening/LoadingOverlay";
 import type { DashboardStats } from "@/types/screening";
-import { AgentStatusBanner } from "@/components/layout/AgentStatusBanner";
 import { ScanSearch, Sparkles } from "lucide-react";
 
 export default function DashboardPage() {
@@ -24,7 +23,6 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <AgentStatusBanner />
       <section className="relative overflow-hidden rounded-3xl border border-border/50 bg-card/60 p-8 backdrop-blur-xl sm:p-10">
         <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-cyan-500/10 blur-3xl" />
         <div className="absolute -bottom-10 -left-10 h-48 w-48 rounded-full bg-violet-500/10 blur-3xl" />
