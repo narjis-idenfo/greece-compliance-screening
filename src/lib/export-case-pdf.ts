@@ -8,52 +8,54 @@ const TEXT_DARK = [30, 30, 30] as const;
 const TEXT_MID = [80, 80, 90] as const;
 const WHITE = [255, 255, 255] as const;
 
-// Greek → Latin transliteration so Greek-script names survive in the PDF
-// (jsPDF built-in fonts only render Latin-1). Order matters for digraphs.
-const GREEK_MAP: Record<string, string> = {
-  "Α": "A", "Β": "V", "Γ": "G", "Δ": "D", "Ε": "E", "Ζ": "Z", "Η": "I",
-  "Θ": "Th", "Ι": "I", "Κ": "K", "Λ": "L", "Μ": "M", "Ν": "N", "Ξ": "X",
-  "Ο": "O", "Π": "P", "Ρ": "R", "Σ": "S", "Τ": "T", "Υ": "Y", "Φ": "F",
-  "Χ": "Ch", "Ψ": "Ps", "Ω": "O",
-  "Ά": "A", "Έ": "E", "Ή": "I", "Ί": "I", "Ό": "O", "Ύ": "Y", "Ώ": "O", "Ϊ": "I", "Ϋ": "Y",
-  "α": "a", "β": "v", "γ": "g", "δ": "d", "ε": "e", "ζ": "z", "η": "i",
-  "θ": "th", "ι": "i", "κ": "k", "λ": "l", "μ": "m", "ν": "n", "ξ": "x",
-  "ο": "o", "π": "p", "ρ": "r", "σ": "s", "ς": "s", "τ": "t", "υ": "y",
-  "φ": "f", "χ": "ch", "ψ": "ps", "ω": "o",
-  "ά": "a", "έ": "e", "ή": "i", "ί": "i", "ό": "o", "ύ": "y", "ώ": "o",
-  "ϊ": "i", "ϋ": "y", "ΐ": "i", "ΰ": "y",
-};
+// Embedded font family name (DejaVu Sans — covers Latin, Greek, Cyrillic).
+const FONT = "DejaVuSans";
 
-function transliterateGreek(value: string): string {
-  return value.replace(/[Ͱ-Ͽἀ-῿]/g, (ch) => GREEK_MAP[ch] ?? "");
+// Convert an ArrayBuffer to a base64 string in chunks (avoids call-stack limits).
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
 }
 
-// jsPDF built-in fonts only support Latin-1 (code points 0–255).
-// Normalize punctuation, transliterate Greek, then strip any remaining non-Latin-1.
+// Load and register the Unicode TTFs so Greek-script names render natively.
+// Falls back silently to the built-in font if the fetch fails.
+async function registerUnicodeFont(doc: import("jspdf").jsPDF): Promise<boolean> {
+  try {
+    const [regBuf, boldBuf] = await Promise.all([
+      fetch("/fonts/DejaVuSans.ttf").then((r) => r.arrayBuffer()),
+      fetch("/fonts/DejaVuSans-Bold.ttf").then((r) => r.arrayBuffer()),
+    ]);
+    doc.addFileToVFS("DejaVuSans.ttf", arrayBufferToBase64(regBuf));
+    doc.addFont("DejaVuSans.ttf", FONT, "normal");
+    doc.addFileToVFS("DejaVuSans-Bold.ttf", arrayBufferToBase64(boldBuf));
+    doc.addFont("DejaVuSans-Bold.ttf", FONT, "bold");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// DejaVu Sans renders Greek/Latin/Cyrillic natively, so pass text through as-is.
 function sanitizePdfText(value: string): string {
-  return transliterateGreek(value)
-    .replace(/[–—]/g, "-")   // en-dash / em-dash -> hyphen
-    .replace(/[‘’]/g, "'")   // curly apostrophes
-    .replace(/[“”]/g, '"')   // curly double quotes
-    .replace(/…/g, "...")          // ellipsis
-    .replace(/[^\x00-\xFF]/g, "")  // strip remaining non-Latin-1 (Arabic, CJK, etc.)
-    .replace(/\s{2,}/g, " ")       // collapse whitespace left by stripped chars
-    .trim();
+  return value;
 }
 
-// For the Known Aliases cell: transliterate each entry; drop any that are still
-// empty/non-Latin after transliteration and note the count.
+// Known Aliases cell: keep every alias, including Greek script.
 function sanitizeAliases(value: string): string {
-  const parts = value.split(/,\s*/);
-  const cleaned = parts.map((p) => sanitizePdfText(p)).filter((p) => p.length > 0);
-  const dropped = parts.length - cleaned.length;
-  const suffix = dropped > 0 ? ` (+${dropped} non-Latin alias${dropped > 1 ? "es" : ""} omitted)` : "";
-  return (cleaned.join(", ") || "Not Available") + suffix;
+  return value || "Not Available";
 }
 
 export async function exportCaseReportPdf(result: ScreeningResult): Promise<void> {
   const { jsPDF } = await import("jspdf");
   const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const hasUnicodeFont = await registerUnicodeFont(doc);
+  // If the Unicode font failed to load, fall back to the built-in Latin-1 font.
+  const FONT_FAMILY = hasUnicodeFont ? FONT : "helvetica";
   const PAGE_W = 210;
   const PAGE_H = 297;
   const MARGIN = 16;
@@ -81,7 +83,7 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
     opts?: { size?: number; bold?: boolean; color?: readonly [number, number, number]; maxWidth?: number }
   ) {
     doc.setFontSize(opts?.size ?? 10);
-    doc.setFont("helvetica", opts?.bold ? "bold" : "normal");
+    doc.setFont(FONT_FAMILY, opts?.bold ? "bold" : "normal");
     const rgb = opts?.color ?? TEXT_DARK;
     doc.setTextColor(rgb[0], rgb[1], rgb[2]);
     if (opts?.maxWidth) {
@@ -100,7 +102,7 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
     opts?: { size?: number; bold?: boolean; color?: readonly [number, number, number]; lineHeight?: number }
   ): number {
     doc.setFontSize(opts?.size ?? 10);
-    doc.setFont("helvetica", opts?.bold ? "bold" : "normal");
+    doc.setFont(FONT_FAMILY, opts?.bold ? "bold" : "normal");
     const rgb = opts?.color ?? TEXT_DARK;
     doc.setTextColor(rgb[0], rgb[1], rgb[2]);
     const lines = doc.splitTextToSize(content, maxWidth);
@@ -121,13 +123,13 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
   doc.rect(0, 0, PAGE_W, 34, "F");
 
   doc.setFontSize(16);
-  doc.setFont("helvetica", "bold");
+  doc.setFont(FONT_FAMILY, "bold");
   doc.setTextColor(255, 255, 255);
   const titleW = doc.getTextWidth("AML / CFT COMPLIANCE REPORT");
   doc.text("AML / CFT COMPLIANCE REPORT", (PAGE_W - titleW) / 2, 14);
 
   doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
+  doc.setFont(FONT_FAMILY, "normal");
   doc.setTextColor(180, 190, 210);
   const subTitle = "CONFIDENTIAL BACKGROUND SCREENING";
   const subW = doc.getTextWidth(subTitle);
@@ -139,7 +141,7 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
   checkPage(70);
 
   doc.setFontSize(11);
-  doc.setFont("helvetica", "bold");
+  doc.setFont(FONT_FAMILY, "bold");
   doc.setTextColor(DARK_NAVY[0], DARK_NAVY[1], DARK_NAVY[2]);
   doc.text("Subject Entity Details", MARGIN, y);
   y += 5;
@@ -171,11 +173,11 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
     hRule(rowY - 4, [235, 235, 240]);
 
     doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
+    doc.setFont(FONT_FAMILY, "bold");
     doc.setTextColor(TEXT_MID[0], TEXT_MID[1], TEXT_MID[2]);
     doc.text(rows[i][0], MARGIN + 3, y);
 
-    doc.setFont("helvetica", "normal");
+    doc.setFont(FONT_FAMILY, "normal");
     doc.setTextColor(TEXT_DARK[0], TEXT_DARK[1], TEXT_DARK[2]);
     const valLines = doc.splitTextToSize(rows[i][1], CONTENT_W * 0.55);
     doc.text(valLines, MARGIN + CONTENT_W * 0.42, y);
@@ -187,7 +189,7 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
   // ── COMPLIANCE ANALYST ASSESSMENT ────────────────────────────────────────
   checkPage(20);
   doc.setFontSize(11);
-  doc.setFont("helvetica", "bold");
+  doc.setFont(FONT_FAMILY, "bold");
   doc.setTextColor(DARK_NAVY[0], DARK_NAVY[1], DARK_NAVY[2]);
   doc.text("Compliance Analyst Assessment", MARGIN, y);
   y += 5;
@@ -209,7 +211,7 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
 
       // Header line
       doc.setFontSize(9.5);
-      doc.setFont("helvetica", "bold");
+      doc.setFont(FONT_FAMILY, "bold");
       doc.setTextColor(RED_ACCENT[0], RED_ACCENT[1], RED_ACCENT[2]);
       const matchName = sanitizePdfText(match.name);
       const matchHeader = sanitizePdfText(`Risk Match: ${(match as { pepType?: string }).pepType ?? "PEP Match"}`)
@@ -220,7 +222,7 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
 
       // Explanation body
       doc.setFontSize(9);
-      doc.setFont("helvetica", "normal");
+      doc.setFont(FONT_FAMILY, "normal");
       doc.setTextColor(TEXT_MID[0], TEXT_MID[1], TEXT_MID[2]);
       const explanationText = sanitizePdfText(match.complianceAnalystReasoning || match.explanation || "");
       const expLines = doc.splitTextToSize(explanationText, CONTENT_W - 10);
@@ -229,7 +231,7 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
 
       // Risk level badge
       doc.setFontSize(8);
-      doc.setFont("helvetica", "bold");
+      doc.setFont(FONT_FAMILY, "bold");
       doc.setTextColor(RED_ACCENT[0], RED_ACCENT[1], RED_ACCENT[2]);
       doc.text(`Risk Level: ${match.riskLevel}  |  Confidence: ${match.confidenceScore}%  |  Match: ${match.matchType}`, MARGIN + 6, y);
 
@@ -256,7 +258,7 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
       y += 6; // top padding inside box
 
       doc.setFontSize(9.5);
-      doc.setFont("helvetica", "bold");
+      doc.setFont(FONT_FAMILY, "bold");
       doc.setTextColor(RED_ACCENT[0], RED_ACCENT[1], RED_ACCENT[2]);
       const matchName = sanitizePdfText(match.name);
       const matchHeader = "Risk Match: Adverse Media" + (matchName ? ` - ${matchName}` : "");
@@ -265,7 +267,7 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
       y += headerLines.length * 5 + 2;
 
       doc.setFontSize(9);
-      doc.setFont("helvetica", "normal");
+      doc.setFont(FONT_FAMILY, "normal");
       doc.setTextColor(TEXT_MID[0], TEXT_MID[1], TEXT_MID[2]);
       const explanationText = sanitizePdfText(match.complianceAnalystReasoning || match.explanation || "");
       const expLines = doc.splitTextToSize(explanationText, CONTENT_W - 10);
@@ -274,7 +276,7 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
 
       if (match.sourceType) {
         doc.setFontSize(8);
-        doc.setFont("helvetica", "bold");
+        doc.setFont(FONT_FAMILY, "bold");
         doc.setTextColor(RED_ACCENT[0], RED_ACCENT[1], RED_ACCENT[2]);
         doc.text(`Source: ${sanitizePdfText(match.sourceType)}  |  Risk: ${match.riskLevel}  |  Confidence: ${match.confidenceScore}%`, MARGIN + 6, y);
         y += 4;
@@ -282,7 +284,7 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
 
       if (match.publishedDate) {
         doc.setFontSize(8);
-        doc.setFont("helvetica", "normal");
+        doc.setFont(FONT_FAMILY, "normal");
         doc.setTextColor(TEXT_MID[0], TEXT_MID[1], TEXT_MID[2]);
         doc.text(`Published: ${sanitizePdfText(match.publishedDate)}`, MARGIN + 6, y);
         y += 1;
@@ -309,7 +311,7 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
 
     const actionStartY = y;
     doc.setFontSize(9.5);
-    doc.setFont("helvetica", "bold");
+    doc.setFont(FONT_FAMILY, "bold");
     doc.setTextColor(DARK_NAVY[0], DARK_NAVY[1], DARK_NAVY[2]);
 
     const actionTitle = result.analystDecision
@@ -319,7 +321,7 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
     y += 6;
 
     doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
+    doc.setFont(FONT_FAMILY, "normal");
     doc.setTextColor(TEXT_MID[0], TEXT_MID[1], TEXT_MID[2]);
 
     const actionText = result.analystNotes
@@ -337,12 +339,12 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
 
     // Re-draw text over background
     doc.setFontSize(9.5);
-    doc.setFont("helvetica", "bold");
+    doc.setFont(FONT_FAMILY, "bold");
     doc.setTextColor(DARK_NAVY[0], DARK_NAVY[1], DARK_NAVY[2]);
     doc.text(actionTitle, MARGIN + 4, actionStartY);
 
     doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
+    doc.setFont(FONT_FAMILY, "normal");
     doc.setTextColor(TEXT_MID[0], TEXT_MID[1], TEXT_MID[2]);
     doc.text(actionLines, MARGIN + 4, actionStartY + 6);
 
@@ -363,7 +365,7 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
 
   checkPage(20);
   doc.setFontSize(11);
-  doc.setFont("helvetica", "bold");
+  doc.setFont(FONT_FAMILY, "bold");
   doc.setTextColor(DARK_NAVY[0], DARK_NAVY[1], DARK_NAVY[2]);
   doc.text("References & Sources", MARGIN, y);
   y += 4;
@@ -374,7 +376,7 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
     for (const ref of allRefs) {
       checkPage(8);
       doc.setFontSize(8.5);
-      doc.setFont("helvetica", "normal");
+      doc.setFont(FONT_FAMILY, "normal");
       doc.setTextColor(TEXT_MID[0], TEXT_MID[1], TEXT_MID[2]);
       const refLines = doc.splitTextToSize(`• ${ref}`, CONTENT_W - 4);
       doc.text(refLines, MARGIN + 3, y);
@@ -382,7 +384,7 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
     }
   } else {
     doc.setFontSize(8.5);
-    doc.setFont("helvetica", "normal");
+    doc.setFont(FONT_FAMILY, "normal");
     doc.setTextColor(TEXT_MID[0], TEXT_MID[1], TEXT_MID[2]);
     if (result.pepMatches.length > 0) {
       doc.text(`• Official Announcements: PEP match sourced from government/parliament records.`, MARGIN + 3, y);
@@ -401,7 +403,7 @@ export async function exportCaseReportPdf(result: ScreeningResult): Promise<void
   for (let pg = 1; pg <= totalPages; pg++) {
     doc.setPage(pg);
     doc.setFontSize(7.5);
-    doc.setFont("helvetica", "normal");
+    doc.setFont(FONT_FAMILY, "normal");
     doc.setTextColor(160, 160, 170);
     const footerText = `Screening ID: ${result.id}  |  Generated: ${new Date().toLocaleString("en-GB")}  |  Page ${pg} of ${totalPages}`;
     const footerW = doc.getTextWidth(footerText);
