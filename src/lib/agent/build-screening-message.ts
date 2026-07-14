@@ -10,7 +10,7 @@ export function buildScreeningUserMessage(
       input.screeningMode === "image_only"
         ? "image_led_pep_and_adverse_media_screening"
         : "pep_and_adverse_media_screening",
-    jurisdiction: "Greece / EU",
+    jurisdiction: "Greece / EU / United Arab Emirates",
     input: {
       fullName: input.fullName,
       fathersName: input.fathersName ?? null,

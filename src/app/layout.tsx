@@ -15,9 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Greece Compliance — PEP & Adverse Media Screening",
+  title: "Compliance — PEP & Adverse Media Screening",
   description:
-    "Next-generation name screening for PEP and adverse media detection powered by Greece Compliance Intelligence",
+    "Next-generation name screening for PEP and adverse media detection powered by Compliance Intelligence",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

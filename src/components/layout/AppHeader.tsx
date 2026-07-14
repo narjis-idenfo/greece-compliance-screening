@@ -24,7 +24,7 @@ export function AppHeader() {
             <Shield className="h-5 w-5 text-white" />
           </div>
           <div className="hidden sm:block">
-            <p className="text-sm font-bold tracking-tight">Greece Compliance</p>
+            <p className="text-sm font-bold tracking-tight">Compliance</p>
             <p className="text-[10px] text-muted-foreground">PEP & Adverse Media Screening</p>
           </div>
         </Link>

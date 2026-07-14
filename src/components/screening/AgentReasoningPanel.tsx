@@ -16,7 +16,7 @@ export function AgentReasoningPanel({ reasoning }: AgentReasoningPanelProps) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <Brain className="h-5 w-5 text-violet-400" />
-            Greece Compliance Intelligence — Agent Summary
+            Compliance Intelligence — Agent Summary
           </CardTitle>
         </CardHeader>
         <CardContent>

@@ -29,7 +29,7 @@ export default function DashboardPage() {
         <div className="relative">
           <div className="mb-2 flex items-center gap-2 text-sm text-cyan-500">
             <Sparkles className="h-4 w-4" />
-            Greece Compliance Intelligence
+            Compliance Intelligence
           </div>
           <h1 className="max-w-2xl text-3xl font-bold tracking-tight sm:text-4xl">
             PEP & Adverse Media Name Screening
