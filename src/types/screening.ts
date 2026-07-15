@@ -111,6 +111,18 @@ export interface ComplianceAnalystReasoning {
   confidenceFactors: { factor: string; impact: "positive" | "negative" | "neutral"; weight: number }[];
 }
 
+export interface RiskScoreBreakdownEntry {
+  score: number;
+  rationale: string;
+}
+
+export interface RiskScoreBreakdown {
+  sanctions: RiskScoreBreakdownEntry;
+  pep: RiskScoreBreakdownEntry;
+  adverseMedia: RiskScoreBreakdownEntry;
+  identityVerification: RiskScoreBreakdownEntry;
+}
+
 export interface ScreeningResult {
   id: string;
   screenedAt: string;
@@ -120,6 +132,7 @@ export interface ScreeningResult {
   screenedInput?: ScreenedInput;
   profileCompleteness: ProfileCompleteness;
   overallRiskScore: number;
+  riskScoreBreakdown: RiskScoreBreakdown;
   riskCategory: RiskCategory;
   confidenceScore: number;
   matchType: MatchType;

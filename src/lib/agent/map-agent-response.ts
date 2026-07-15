@@ -16,10 +16,13 @@ import type {
   ScreenedInput,
   RCAAnalysis,
   ComplianceAnalystReasoning,
+  RiskScoreBreakdown,
+  RiskScoreBreakdownEntry,
 } from "@/types/screening";
 
 export interface AgentScreeningPayload {
   overallRiskScore: number;
+  riskScoreBreakdown: RiskScoreBreakdown;
   riskCategory: RiskCategory;
   confidenceScore: number;
   matchType: MatchType;
@@ -45,6 +48,30 @@ function normalizeRiskCategory(v: unknown): RiskCategory {
   if (s.includes("high")) return "High";
   if (s.includes("medium") || s.includes("moderate")) return "Medium";
   return "Low";
+}
+
+function normalizeRiskScoreBreakdownEntry(v: unknown): RiskScoreBreakdownEntry {
+  if (!v || typeof v !== "object") {
+    return { score: 0, rationale: "" };
+  }
+  const e = v as Record<string, unknown>;
+  return {
+    score: Number(e.score) || 0,
+    rationale: typeof e.rationale === "string" ? e.rationale : "",
+  };
+}
+
+function normalizeRiskScoreBreakdown(v: unknown): RiskScoreBreakdown {
+  const b = (v && typeof v === "object" ? (v as Record<string, unknown>) : {}) as Record<
+    string,
+    unknown
+  >;
+  return {
+    sanctions: normalizeRiskScoreBreakdownEntry(b.sanctions),
+    pep: normalizeRiskScoreBreakdownEntry(b.pep),
+    adverseMedia: normalizeRiskScoreBreakdownEntry(b.adverseMedia),
+    identityVerification: normalizeRiskScoreBreakdownEntry(b.identityVerification),
+  };
 }
 
 function normalizeMatchType(v: unknown): MatchType {
@@ -104,6 +131,7 @@ export function parseAgentScreeningPayload(
 
   return {
     overallRiskScore: Number(p.overallRiskScore) || 0,
+    riskScoreBreakdown: normalizeRiskScoreBreakdown(p.riskScoreBreakdown),
     riskCategory,
     confidenceScore: Number(p.confidenceScore) || 0,
     matchType,
@@ -131,6 +159,7 @@ export function buildScreeningResult(
     screenedInput: payload.screenedInput,
     profileCompleteness,
     overallRiskScore: payload.overallRiskScore,
+    riskScoreBreakdown: payload.riskScoreBreakdown,
     riskCategory: payload.riskCategory,
     confidenceScore: payload.confidenceScore,
     matchType: payload.matchType,

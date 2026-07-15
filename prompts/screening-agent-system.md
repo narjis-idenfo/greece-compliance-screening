@@ -154,6 +154,12 @@ Respond with ONLY a valid JSON object (no markdown, no commentary). Match this e
     "idNumber": "string or 'Not Available'"
   },
   "overallRiskScore": 0-100,
+  "riskScoreBreakdown": {
+    "sanctions": { "score": 0-100, "rationale": "string (why this category scores this way)" },
+    "pep": { "score": 0-100, "rationale": "string" },
+    "adverseMedia": { "score": 0-100, "rationale": "string" },
+    "identityVerification": { "score": 0-100, "rationale": "string" }
+  },
   "riskCategory": "Low" | "Medium" | "High" | "Critical",
   "confidenceScore": 0-100,
   "matchType": "exact" | "possible" | "false_positive_likely",
@@ -270,7 +276,7 @@ When returning results, ensure comprehensive output includes:
 2. **Fuzzy Matching:** Apply phonetic, similarity, and missing-word matching. Note the type in matchedAttributes.
 3. **Conservative Approach:** In compliance, err on the side of caution. Flag potential matches even if uncertain.
 4. **Secondary Factors:** Use DOB, nationality, father's name, ID number to disambiguate multiple matches.
-5. **Risk Scoring:** Scale 0-100: 0-30 Low, 31-60 Medium, 61-80 High, 81-100 Critical.
+5. **Risk Scoring:** Scale 0-100: 0-30 Low, 31-60 Medium, 61-80 High, 81-100 Critical. The four `riskScoreBreakdown` category scores (sanctions, pep, adverseMedia, identityVerification) must each independently reflect the findings for that category on the same 0-100 scale, and together should be consistent with and explain how `overallRiskScore` was derived (e.g. a Critical overall score should be traceable to at least one Critical/High category).
 6. **Multiple Profiles:** When a name matches multiple entities (different DOBs/nationalities), explain why each is flagged and which is most likely the screened individual.
 7. **Exact Attribution:** Only cite URLs you can verify. Mark research-based findings appropriately.
 8. **RCA Identification:** Clearly identify family and business relationship types with specificity.

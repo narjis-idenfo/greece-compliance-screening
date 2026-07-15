@@ -141,6 +141,37 @@ export function buildMockScreeningResult(
       missingFields: [],
     },
     overallRiskScore: hasRichProfile ? 78 : 52,
+    riskScoreBreakdown: hasRichProfile
+      ? {
+          sanctions: { score: 20, rationale: "No sanctions list matches found." },
+          pep: {
+            score: 85,
+            rationale: "Exact match against a Primary PEP registry entry with high confidence.",
+          },
+          adverseMedia: {
+            score: 60,
+            rationale: "One medium-risk adverse media finding linked to financial misconduct.",
+          },
+          identityVerification: {
+            score: 91,
+            rationale: "Strong corroboration across DOB, father's name, and address records.",
+          },
+        }
+      : {
+          sanctions: { score: 10, rationale: "No sanctions list matches found." },
+          pep: {
+            score: 55,
+            rationale: "Possible match on a PEP list with low confirming detail.",
+          },
+          adverseMedia: {
+            score: 45,
+            rationale: "Low-confidence adverse media mention, not clearly corroborated.",
+          },
+          identityVerification: {
+            score: 55,
+            rationale: "Only primary name provided; limited corroborating identity data.",
+          },
+        },
     riskCategory: hasRichProfile ? "Critical" : "Medium",
     confidenceScore: hasRichProfile ? 89 : 58,
     matchType: hasRichProfile ? "exact" : "possible",

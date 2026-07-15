@@ -66,6 +66,7 @@ export default function CaseReviewPage() {
       <RiskScoreCard
         fullName={result.input.fullName}
         overallRiskScore={result.overallRiskScore}
+        riskScoreBreakdown={result.riskScoreBreakdown}
         riskCategory={result.riskCategory}
         confidenceScore={result.confidenceScore}
         matchType={result.matchType}
